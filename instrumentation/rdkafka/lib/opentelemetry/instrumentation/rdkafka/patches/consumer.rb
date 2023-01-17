@@ -21,12 +21,19 @@ module OpenTelemetry
               }
 
               attributes['messaging.kafka.message_key'] = message.key if message.key
-              parent_context = OpenTelemetry.propagation.extract(message.headers, getter: OpenTelemetry::Common::Propagation.symbol_key_getter)
+              parent_context = OpenTelemetry.propagation.extract(message.headers,
+                                                                 getter: OpenTelemetry::Common::Propagation.symbol_key_getter)
               span_context = OpenTelemetry::Trace.current_span(parent_context).context
               links = [OpenTelemetry::Trace::Link.new(span_context)] if span_context.valid?
 
-              OpenTelemetry::Context.with_current(parent_context) do
-                tracer.in_span("#{message.topic} process", links: links, attributes: attributes, kind: :consumer) do
+              if parent_context.valid?
+                OpenTelemetry::Context.with_current(parent_context) do
+                  tracer.in_span("#{message.topic} process", links: links, attributes: attributes, kind: :consumer) do
+                    yield message
+                  end
+                end
+              elsif instrumentation.config[:trace_root_spans]
+                tracer.in_span("#{message.topic} process", attributes: attributes, kind: :consumer) do
                   yield message
                 end
               end

@@ -24,6 +24,8 @@ module OpenTelemetry
           defined?(::Rdkafka)
         end
 
+        option :trace_root_spans,             default: false,  validate: :boolean
+
         private
 
         def require_patches
